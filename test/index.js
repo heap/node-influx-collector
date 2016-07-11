@@ -1,4 +1,5 @@
 var nock = require('nock');
+var mock_udp = require('mock-udp');
 var assert = require('assert');
 
 var Collector = require('../');
@@ -6,6 +7,7 @@ var Collector = require('../');
 suite('influx-collector');
 
 var COLLECTOR_URL = 'http://user:password@example.com:8086/test-db';
+var UDP_COLLECTOR_URL = 'udp://user:password@example.com:8086/db-defined-in-server-config';
 
 test('should create a collector', function(done) {
     Collector('series', COLLECTOR_URL);
@@ -40,6 +42,29 @@ test('should collect a single data point', function(done) {
         req.done();
         done();
     }, 100);
+});
+
+test('should collect a single data point via UDP', function(done) {
+   var stats = Collector('series-goes-here', UDP_COLLECTOR_URL);
+
+    // Create scope to capture UDP requests
+    var scope = mock_udp('example.com:8086');
+
+    stats.collect("value-goes-here", "tag-goes-here");
+    stats.stop();
+
+    assert.deepEqual(
+        JSON.parse(scope.buffer.toString()),
+        [{
+            "name": "series-goes-here",
+            "columns": ["values", "tags"],
+            "points": [
+                [{"value": "value-goes-here"}, "tag-goes-here"]
+            ]
+        }]
+    );
+    scope.done();
+    done();
 });
 
 test('should collect a single data point with tags', function(done) {
