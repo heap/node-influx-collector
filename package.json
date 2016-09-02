@@ -24,9 +24,10 @@
   },
   "homepage": "https://github.com/defunctzombie/node-influx-collector",
   "devDependencies": {
-    "mock-udp": "0.1.1",
     "mocha": "2.0.1",
-    "nock": "2.9.1"
+    "mock-udp": "0.1.1",
+    "nock": "2.9.1",
+    "pre-push": "^0.1.1"
   },
   "dependencies": {
     "influx": "4.0.1",
