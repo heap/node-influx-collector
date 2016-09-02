@@ -11,20 +11,12 @@ var COLLECTOR_URL = 'http://user:password@example.com:8086/test-db';
 var UDP_COLLECTOR_URL = 'udp://user:password@example.com:8086/db-defined-in-server-config';
 
 test('should create a collector', function(done) {
-    Collector('series', COLLECTOR_URL);
-    done();
-});
-
-test('should do nothing with no url', function(done) {
-    var stats = Collector('foo');
-
-    stats.collect({});
-    assert.deepEqual(stats._points, undefined);
+    Collector(COLLECTOR_URL);
     done();
 });
 
 test('should collect a single data point', function(done) {
-    var stats = Collector('series', COLLECTOR_URL);
+    var stats = Collector(COLLECTOR_URL);
 
     var req = nock('http://example.com:8086')
     .filteringRequestBody(/.*/, function(body) {
@@ -36,7 +28,7 @@ test('should collect a single data point', function(done) {
         assert.equal(request_body, 'series foo=34');
     })
 
-    stats.collect({ foo: 34.0 })
+    stats.collect('series', { foo: 34.0 })
 
     stats.flush();
     setTimeout(function() {
@@ -46,11 +38,12 @@ test('should collect a single data point', function(done) {
 });
 
 test('should collect a single data point via UDP', function(done) {
-    var stats = Collector('series-name', UDP_COLLECTOR_URL);
+    var stats = Collector(UDP_COLLECTOR_URL);
 
     var scope = mock_udp('example.com:8086');
 
     stats.collect(
+        'series-name',
         {key: "val", key2: "val2"},
         {tkey1: "tval1", tkey2: "tval2"}
     );
@@ -65,7 +58,7 @@ test('should collect a single data point via UDP', function(done) {
 });
 
 test('should collect a single data point with tags', function(done) {
-    var stats = Collector('series', COLLECTOR_URL);
+    var stats = Collector(COLLECTOR_URL);
 
     var req = nock('http://example.com:8086')
     .filteringRequestBody(/.*/, function(body) {
@@ -74,10 +67,10 @@ test('should collect a single data point with tags', function(done) {
     .post('/write', '*')
     .query({db: 'test-db', u: 'user', p: 'password', precision: 'ms', database: 'test-db' })
     .reply(200, function(uri, request_body) {
-        assert.equal(request_body, 'series,host=cat foo=34');
+        assert.equal(request_body, 'series-name,host=cat foo=34');
     })
 
-    stats.collect({ foo: 34.0 }, { host: 'cat' })
+    stats.collect('series-name', { foo: 34.0 }, { host: 'cat' })
 
     stats.flush();
     setTimeout(function() {
@@ -88,21 +81,21 @@ test('should collect a single data point with tags', function(done) {
 });
 
 test('should collect multiple data points', function(done) {
-    var stats = Collector('series', COLLECTOR_URL);
+    var stats = Collector(COLLECTOR_URL);
 
     var req = nock('http://example.com:8086')
     .filteringRequestBody(/.*/, function(body) {
         return '*';
     })
-    .post('/write', '*\nseries foo=10.2,bar="dog"')
+    .post('/write', '*\nseries-name foo=10.2,bar="dog"')
     .query({db: 'test-db', u: 'user', p: 'password', precision: 'ms', database: 'test-db' })
     .reply(200, function(uri, request_body) {
-        var expected = 'series bar="cat",foo=34\nseries foo=10.2,bar="dog"';
+        var expected = 'series-name bar="cat",foo=34\nseries-name foo=10.2,bar="dog"';
         assert.equal(request_body, expected);
     });
 
-    stats.collect({ bar: 'cat', foo: 34.0 });
-    stats.collect({ foo: 10.2, bar: 'dog' });
+    stats.collect('series-name', { bar: 'cat', foo: 34.0 });
+    stats.collect('series-name', { foo: 10.2, bar: 'dog' });
 
     stats.flush();
     setTimeout(function() {
@@ -112,7 +105,7 @@ test('should collect multiple data points', function(done) {
 });
 
 test('should support instantFlush', function(done) {
-    var stats = Collector('series', COLLECTOR_URL + '?instantFlush=yes');
+    var stats = Collector(COLLECTOR_URL + '?instantFlush=yes');
 
     var req = nock('http://example.com:8086')
     .filteringRequestBody(/.*/, function(body) {
@@ -121,10 +114,10 @@ test('should support instantFlush', function(done) {
     .post('/write', '*')
     .query({db: 'test-db', u: 'user', p: 'password', precision: 'ms', database: 'test-db' })
     .reply(200, function(uri, request_body) {
-        assert.equal(request_body, 'series foo=34');
+        assert.equal(request_body, 'series-name foo=34');
     });
 
-    stats.collect({ foo: 34.0 });
+    stats.collect('series-name', { foo: 34.0 });
 
     setTimeout(function() {
         req.done();
@@ -133,7 +126,7 @@ test('should support instantFlush', function(done) {
 });
 
 test('should support a custom flushInterval', function(done) {
-    var stats = Collector('series', COLLECTOR_URL + '?flushInterval=500');
+    var stats = Collector(COLLECTOR_URL + '?flushInterval=500');
 
     var req = nock('http://example.com:8086')
     .filteringRequestBody(/.*/, function(body) {
@@ -145,7 +138,7 @@ test('should support a custom flushInterval', function(done) {
         assert.equal(request_body, 'series foo=34');
     });
 
-    stats.collect({ foo: 34.0 })
+    stats.collect('series', { foo: 34.0 })
 
     setTimeout(function() {
         req.done();
@@ -154,7 +147,7 @@ test('should support a custom flushInterval', function(done) {
 });
 
 test('should support a autoFlush=no', function(done) {
-    var stats = Collector('series', COLLECTOR_URL + '?flushInterval=500&autoFlush=no');
+    var stats = Collector(COLLECTOR_URL + '?flushInterval=500&autoFlush=no');
 
     var req = nock('http://example.com:8086')
     .filteringRequestBody(/.*/, function(body) {
@@ -166,7 +159,7 @@ test('should support a autoFlush=no', function(done) {
         assert.equal(request_body, 'series foo=34');
     });
 
-    stats.collect({ foo: 34.0 })
+    stats.collect('series', { foo: 34.0 })
 
     setTimeout(function() {
         assert(req.isDone() == false);
@@ -181,7 +174,7 @@ test('should support a autoFlush=no', function(done) {
 });
 
 test('should support time_precision', function(done) {
-    var stats = Collector('series', COLLECTOR_URL + '?time_precision=s');
+    var stats = Collector(COLLECTOR_URL + '?time_precision=s');
 
     var req = nock('http://example.com:8086')
     .filteringRequestBody(/.*/, function(body) {
@@ -193,7 +186,7 @@ test('should support time_precision', function(done) {
         assert.equal(request_body, 'series foo=34 1416512521');
     });
 
-    stats.collect({ time: 1416512521, foo: 34.0 });
+    stats.collect('series', { time: 1416512521, foo: 34.0 });
 
     stats.flush();
     setTimeout(function() {

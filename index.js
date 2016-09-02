@@ -71,7 +71,7 @@ function flushSeries(collector, seriesName, points) {
     var batch = points.splice(0, 500);
     var opt = { precision: collector._time_precision };
 
-    collector._client.writePoints(series._name, batch, opt, function(err) {
+    collector._client.writePoints(seriesName, batch, opt, function(err) {
         if (err) {
             return collector.emit('error', err);
         }
