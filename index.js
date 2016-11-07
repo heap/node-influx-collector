@@ -1,5 +1,6 @@
 var EventEmitter = require('events').EventEmitter;
 var influx = require('influx');
+var influx_udp = require('influx-udp');
 var url = require('url');
 
 // create a collector for the given series
@@ -29,14 +30,18 @@ function Collector(series, uri) {
         password = parts.shift();
     }
 
-    self._client = influx({
+    var client = parsed.protocol == 'udp:' ? influx_udp : influx;
+    var protocol = parsed.protocol == 'udp:' ? 'line' : parsed.protocol;
+
+    self._client = new client({
         host : parsed.hostname,
         port : parsed.port,
-        protocol : parsed.protocol,
+        protocol : protocol,
         username : username,
         password : password,
-        database : parsed.pathname.slice(1) // remove leading '/'
-    })
+        database : parsed.pathname.slice(1), // remove leading '/'
+        reportTime : false
+    });
 
     self._points = [];
 
