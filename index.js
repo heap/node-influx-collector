@@ -40,6 +40,7 @@ function Collector(uri) {
     });
 
     self._series = {};
+    self._flushesInFlight = 0;
 
     var opt = parsed.query || {};
 
@@ -78,7 +79,14 @@ Collector.prototype.computePointCountToSend = function(pointSizes, upperBound) {
   return Math.min(index, pointSizes.length); // But not if there were no points at all.
 };
 
-function flushSeries(collector, seriesName, points) {
+function notifyIfFlushed(collector, callback, err) {
+    if (!callback || collector._flushesInFlight > 0) {
+        return;
+    }
+    setImmediate(callback, err);
+}
+
+function flushSeries(collector, seriesName, points, callback) {
     if (!points || points.length === 0) {
         return;
     }
@@ -95,28 +103,34 @@ function flushSeries(collector, seriesName, points) {
     var batch = points.splice(0, spliceIndex);
     var opt = { precision: collector._time_precision };
 
+    collector._flushesInFlight++;
     collector._client.writePoints(seriesName, batch, opt, function(err) {
+        collector._flushesInFlight--;
         if (err) {
             // TODO if error put points back to send again?
-            return self.emit('error', err);
+            collector.emit('error', err);
+            notifyIfFlushed(collector, callback, err);
+            return;
         }
 
         // there are more points to flush out
         if (points.length > 0) {
             flushSeries(collector, seriesName, points);
         }
+        notifyIfFlushed(collector, callback);
     });
 }
 
-Collector.prototype.flush = function() {
+Collector.prototype.flush = function(callback) {
     var self = this;
 
     Object.keys(self._series).forEach(function(key) {
         var series = self._series[key];
         delete self._series[key];
 
-        flushSeries(self, key, series);
+        flushSeries(self, key, series, callback);
     });
+    notifyIfFlushed(self, callback);
 };
 
 function getSeries(collector, name, reset) {
