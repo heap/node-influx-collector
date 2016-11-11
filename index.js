@@ -87,38 +87,39 @@ Collector.prototype._notifyIfFlushed = function(callback, err) {
     setImmediate(callback, err);
 }
 
-function flushSeries(collector, seriesName, points, callback) {
+Collector.prototype._flushSeries = function(seriesName, points, callback) {
     if (!points || points.length === 0) {
         return;
     }
+    self = this;
 
     // only send N points at a time to avoid making requests too large
     var spliceIndex;
-    if (collector._client.protocol == 'udp:') {
-      spliceIndex = collector.computePointCountToSend(collector._points.map(function (point) {
+    if (self._client.protocol == 'udp:') {
+      spliceIndex = self.computePointCountToSend(self._points.map(function (point) {
         return JSON.stringify(point).length;
       }), MTU_SIZE);
     } else {
       spliceIndex = 50;
     }
     var batch = points.splice(0, spliceIndex);
-    var opt = { precision: collector._time_precision };
+    var opt = { precision: self._time_precision };
 
-    collector._flushesInFlight++;
-    collector._client.writePoints(seriesName, batch, opt, function(err) {
-        collector._flushesInFlight--;
+    self._flushesInFlight++;
+    self._client.writePoints(seriesName, batch, opt, function(err) {
+        self._flushesInFlight--;
         if (err) {
             // TODO if error put points back to send again?
-            collector.emit('error', err);
-            collector._notifyIfFlushed(callback, err);
+            self.emit('error', err);
+            self._notifyIfFlushed(callback, err);
             return;
         }
 
         // there are more points to flush out
         if (points.length > 0) {
-            flushSeries(collector, seriesName, points);
+            self._flushSeries(seriesName, points);
         }
-        collector._notifyIfFlushed(callback);
+        self._notifyIfFlushed(callback);
     });
 }
 
@@ -129,7 +130,7 @@ Collector.prototype.flush = function(callback) {
         var series = self._series[key];
         delete self._series[key];
 
-        flushSeries(self, key, series, callback);
+        self._flushSeries(key, series, callback);
     });
     self._notifyIfFlushed(callback);
 };
@@ -152,7 +153,7 @@ Collector.prototype.collect = function(seriesName, value, tags) {
     var self = this;
 
     if (self._instant_flush) {
-        flushSeries(self, seriesName, [[value, tags]]);
+        self._flushSeries(seriesName, [[value, tags]]);
     } else {
         var series = getSeries(self, seriesName);
 
