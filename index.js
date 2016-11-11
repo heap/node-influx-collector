@@ -80,7 +80,7 @@ Collector.prototype.computePointCountToSend = function(pointSizes, upperBound) {
 };
 
 Collector.prototype._notifyIfFlushed = function(callback, err) {
-    self = this;
+    var self = this;
     if (!callback || self._flushesInFlight > 0) {
         return;
     }
@@ -91,7 +91,7 @@ Collector.prototype._flushSeries = function(seriesName, points, callback) {
     if (!points || points.length === 0) {
         return;
     }
-    self = this;
+    var self = this;
 
     // only send N points at a time to avoid making requests too large
     var spliceIndex;
