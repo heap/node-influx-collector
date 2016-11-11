@@ -79,8 +79,9 @@ Collector.prototype.computePointCountToSend = function(pointSizes, upperBound) {
   return Math.min(index, pointSizes.length); // But not if there were no points at all.
 };
 
-function notifyIfFlushed(collector, callback, err) {
-    if (!callback || collector._flushesInFlight > 0) {
+Collector.prototype._notifyIfFlushed = function(callback, err) {
+    self = this;
+    if (!callback || self._flushesInFlight > 0) {
         return;
     }
     setImmediate(callback, err);
@@ -109,7 +110,7 @@ function flushSeries(collector, seriesName, points, callback) {
         if (err) {
             // TODO if error put points back to send again?
             collector.emit('error', err);
-            notifyIfFlushed(collector, callback, err);
+            collector._notifyIfFlushed(callback, err);
             return;
         }
 
@@ -117,7 +118,7 @@ function flushSeries(collector, seriesName, points, callback) {
         if (points.length > 0) {
             flushSeries(collector, seriesName, points);
         }
-        notifyIfFlushed(collector, callback);
+        collector._notifyIfFlushed(callback);
     });
 }
 
@@ -130,7 +131,7 @@ Collector.prototype.flush = function(callback) {
 
         flushSeries(self, key, series, callback);
     });
-    notifyIfFlushed(self, callback);
+    self._notifyIfFlushed(callback);
 };
 
 function getSeries(collector, name, reset) {
