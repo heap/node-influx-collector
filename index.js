@@ -59,7 +59,7 @@ function Collector(uri) {
     self._interval = setInterval(function() {
         self.flush();
     }, flush_interval).unref();
-}
+};
 
 Collector.prototype.__proto__ = EventEmitter.prototype;
 
@@ -85,7 +85,7 @@ Collector.prototype._notifyIfFlushed = function(callback, err) {
         return;
     }
     setImmediate(callback, err);
-}
+};
 
 Collector.prototype._flushSeries = function(seriesName, points, callback) {
     if (!points || points.length === 0) {
@@ -121,7 +121,7 @@ Collector.prototype._flushSeries = function(seriesName, points, callback) {
         }
         self._notifyIfFlushed(callback);
     });
-}
+};
 
 Collector.prototype.flush = function(callback) {
     var self = this;
@@ -129,7 +129,6 @@ Collector.prototype.flush = function(callback) {
     Object.keys(self._series).forEach(function(key) {
         var series = self._series[key];
         delete self._series[key];
-
         self._flushSeries(key, series, callback);
     });
     self._notifyIfFlushed(callback);
@@ -139,13 +138,13 @@ Collector.prototype._getSeries = function(name, reset) {
     var self = this;
     var series = self._series[name];
 
-    if(!series) {
+    if (!series) {
         series = [];
         self._series[name] = series;
     }
 
     return series;
-}
+};
 
 // collect a data point (or object)
 // @param [Object] value the data
@@ -157,7 +156,6 @@ Collector.prototype.collect = function(seriesName, value, tags) {
         self._flushSeries(seriesName, [[value, tags]]);
     } else {
         var series = self._getSeries(seriesName);
-
         series.push([value, tags]);
     }
 };
@@ -167,6 +165,6 @@ Collector.prototype.stop = function() {
 
     clearInterval(self._interval);
     self.flush();
-}
+};
 
 module.exports = Collector;
