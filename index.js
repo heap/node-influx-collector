@@ -135,12 +135,13 @@ Collector.prototype.flush = function(callback) {
     self._notifyIfFlushed(callback);
 };
 
-function getSeries(collector, name, reset) {
-    var series = collector._series[name];
+Collector.prototype._getSeries = function(name, reset) {
+    var self = this;
+    var series = self._series[name];
 
     if(!series) {
         series = [];
-        collector._series[name] = series;
+        self._series[name] = series;
     }
 
     return series;
@@ -155,7 +156,7 @@ Collector.prototype.collect = function(seriesName, value, tags) {
     if (self._instant_flush) {
         self._flushSeries(seriesName, [[value, tags]]);
     } else {
-        var series = getSeries(self, seriesName);
+        var series = self._getSeries(seriesName);
 
         series.push([value, tags]);
     }
