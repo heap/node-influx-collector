@@ -80,8 +80,7 @@ Collector.prototype.computePointCountToSend = function(pointSizes, upperBound) {
 };
 
 Collector.prototype._notifyIfFlushed = function(callback, err) {
-    var self = this;
-    if (!callback || self._flushesInFlight > 0) {
+    if (!callback || this._flushesInFlight > 0) {
         return;
     }
     setImmediate(callback, err);
@@ -135,14 +134,11 @@ Collector.prototype.flush = function(callback) {
 };
 
 Collector.prototype._getSeries = function(name, reset) {
-    var self = this;
-    var series = self._series[name];
-
+    var series = this._series[name];
     if (!series) {
         series = [];
-        self._series[name] = series;
+        this._series[name] = series;
     }
-
     return series;
 };
 
@@ -150,21 +146,17 @@ Collector.prototype._getSeries = function(name, reset) {
 // @param [Object] value the data
 // @param [Object] tags the tags (optional)
 Collector.prototype.collect = function(seriesName, value, tags) {
-    var self = this;
-
-    if (self._instant_flush) {
-        self._flushSeries(seriesName, [[value, tags]]);
+    if (this._instant_flush) {
+        this._flushSeries(seriesName, [[value, tags]]);
     } else {
-        var series = self._getSeries(seriesName);
+        var series = this._getSeries(seriesName);
         series.push([value, tags]);
     }
 };
 
 Collector.prototype.stop = function() {
-    var self = this;
-
-    clearInterval(self._interval);
-    self.flush();
+    clearInterval(this._interval);
+    this.flush();
 };
 
 module.exports = Collector;
