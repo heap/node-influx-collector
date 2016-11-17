@@ -59,7 +59,7 @@ function Collector(uri) {
     self._interval = setInterval(function() {
         self.flush();
     }, flush_interval).unref();
-}
+};
 
 Collector.prototype.__proto__ = EventEmitter.prototype;
 
@@ -79,47 +79,48 @@ Collector.prototype.computePointCountToSend = function(pointSizes, upperBound) {
   return Math.min(index, pointSizes.length); // But not if there were no points at all.
 };
 
-function notifyIfFlushed(collector, callback, err) {
-    if (!callback || collector._flushesInFlight > 0) {
+Collector.prototype._notifyIfFlushed = function(callback, err) {
+    if (!callback || this._flushesInFlight > 0) {
         return;
     }
     setImmediate(callback, err);
-}
+};
 
-function flushSeries(collector, seriesName, points, callback) {
+Collector.prototype._flushSeries = function(seriesName, points, callback) {
     if (!points || points.length === 0) {
         return;
     }
+    var self = this;
 
     // only send N points at a time to avoid making requests too large
     var spliceIndex;
-    if (collector._client.protocol == 'udp:') {
-      spliceIndex = collector.computePointCountToSend(collector._points.map(function (point) {
+    if (self._client.protocol == 'udp:') {
+      spliceIndex = self.computePointCountToSend(self._points.map(function (point) {
         return JSON.stringify(point).length;
       }), MTU_SIZE);
     } else {
       spliceIndex = 50;
     }
     var batch = points.splice(0, spliceIndex);
-    var opt = { precision: collector._time_precision };
+    var opt = { precision: self._time_precision };
 
-    collector._flushesInFlight++;
-    collector._client.writePoints(seriesName, batch, opt, function(err) {
-        collector._flushesInFlight--;
+    self._flushesInFlight++;
+    self._client.writePoints(seriesName, batch, opt, function(err) {
+        self._flushesInFlight--;
         if (err) {
             // TODO if error put points back to send again?
-            collector.emit('error', err);
-            notifyIfFlushed(collector, callback, err);
+            self.emit('error', err);
+            self._notifyIfFlushed(callback, err);
             return;
         }
 
         // there are more points to flush out
         if (points.length > 0) {
-            flushSeries(collector, seriesName, points);
+            self._flushSeries(seriesName, points);
         }
-        notifyIfFlushed(collector, callback);
+        self._notifyIfFlushed(callback);
     });
-}
+};
 
 Collector.prototype.flush = function(callback) {
     var self = this;
@@ -127,43 +128,35 @@ Collector.prototype.flush = function(callback) {
     Object.keys(self._series).forEach(function(key) {
         var series = self._series[key];
         delete self._series[key];
-
-        flushSeries(self, key, series, callback);
+        self._flushSeries(key, series, callback);
     });
-    notifyIfFlushed(self, callback);
+    self._notifyIfFlushed(callback);
 };
 
-function getSeries(collector, name, reset) {
-    var series = collector._series[name];
-
-    if(!series) {
+Collector.prototype._getSeries = function(name, reset) {
+    var series = this._series[name];
+    if (!series) {
         series = [];
-        collector._series[name] = series;
+        this._series[name] = series;
     }
-
     return series;
-}
+};
 
 // collect a data point (or object)
 // @param [Object] value the data
 // @param [Object] tags the tags (optional)
 Collector.prototype.collect = function(seriesName, value, tags) {
-    var self = this;
-
-    if (self._instant_flush) {
-        flushSeries(self, seriesName, [[value, tags]]);
+    if (this._instant_flush) {
+        this._flushSeries(seriesName, [[value, tags]]);
     } else {
-        var series = getSeries(self, seriesName);
-
+        var series = this._getSeries(seriesName);
         series.push([value, tags]);
     }
 };
 
 Collector.prototype.stop = function() {
-    var self = this;
-
-    clearInterval(self._interval);
-    self.flush();
-}
+    clearInterval(this._interval);
+    this.flush();
+};
 
 module.exports = Collector;
