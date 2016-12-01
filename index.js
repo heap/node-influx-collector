@@ -94,14 +94,15 @@ Collector.prototype._flushSeries = function(seriesName, points, callback) {
 
     // only send N points at a time to avoid making requests too large
     var spliceIndex;
-    if (self._client.protocol == 'udp:') {
-      spliceIndex = self.computePointCountToSend(self._points.map(function (point) {
+    if (self._client.protocol == 'udp:' || self._client.protocol == 'line') {
+      spliceIndex = self.computePointCountToSend(points.map(function (point) {
         return JSON.stringify(point).length;
       }), MTU_SIZE);
     } else {
       spliceIndex = 50;
     }
-    var batch = points.splice(0, spliceIndex);
+    var batch = points.slice(0, spliceIndex);
+    points = points.slice(spliceIndex);
     var opt = { precision: self._time_precision };
 
     self._flushesInFlight++;
