@@ -2,7 +2,7 @@ var EventEmitter = require('events').EventEmitter;
 var influx = require('influx');
 var url = require('url');
 
-// create a collector for all series
+// create a collector
 function Collector(uri) {
     if (!(this instanceof Collector)) {
         return new Collector(uri);
@@ -91,20 +91,15 @@ Collector.prototype._flushPoints = function(points, callback) {
     var self = this;
 
     // only send N points at a time to avoid making requests too large
-    var spliceIndex = 50
+    var spliceIndex = self.computePointCountToSend(points.map(function (point) {
+        return JSON.stringify(point).length;
+      }), MTU_SIZE);
     var batch = points.slice(0, spliceIndex);
     points = points.slice(spliceIndex);
     var opt = { precision: self._time_precision };
 
     self._flushesInFlight++;
     self._client.writePoints(batch, opt)
-      .catch(function(err) {
-        self._flushesInFlight--;
-        // TODO if error put points back to send again?
-        self.emit('error', err);
-        self._notifyIfFlushed(callback, err);
-        return;
-      })
       .then(function() {
         self._flushesInFlight--;
         // there are more points to flush out
@@ -112,14 +107,17 @@ Collector.prototype._flushPoints = function(points, callback) {
             self._flushPoints(points);
         }
         self._notifyIfFlushed(callback);
+      }, function(err) {
+        self._flushesInFlight--;
+        // TODO if error put points back to send again?
+        self.emit('error', err);
+        self._notifyIfFlushed(callback, err);
       });
 };
 
 Collector.prototype.flush = function(callback) {
-    var points = this._points;
+    this._flushPoints(this._points, callback);
     this._points = [];
-    this._flushPoints(points, callback);
-    this._notifyIfFlushed(callback);
 };
 
 // collect a data point (or object)
@@ -129,10 +127,10 @@ Collector.prototype.collect = function(seriesName, value, tags) {
     var point = {
       measurement: seriesName,
       tags: tags,
-      fields: { value }
+      fields: { value: value}
     }
     if (this._instant_flush) {
-        this._flushSeries([point]);
+        this._flushPoints([point]);
     } else {
         this._points.push(point)
     }
