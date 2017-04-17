@@ -121,16 +121,16 @@ Collector.prototype.flush = function(callback) {
 };
 
 // collect a data point (or object)
-// @param [Object] value the data
+// @param [Object] fields the data
 // @param [Object] tags the tags (optional)
-Collector.prototype.collect = function(seriesName, value, tags) {
-    if (typeof value === 'number') {
-      value = { value: value }
+Collector.prototype.collect = function(seriesName, fields, tags) {
+    if (typeof fields === 'number') {
+      fields = { value: fields }
     }
     var point = {
       measurement: seriesName,
       tags: tags,
-      fields: value
+      fields: fields
     }
 
     if (this._instant_flush) {
