@@ -124,7 +124,7 @@ Collector.prototype.flush = function(callback) {
 // @param [Object] fields the data
 // @param [Object] tags the tags (optional)
 Collector.prototype.collect = function(seriesName, fields, tags) {
-    if (typeof fields === 'number') {
+    if (typeof fields !== 'object') {
       fields = { value: fields }
     }
     var point = {
