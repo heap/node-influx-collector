@@ -124,11 +124,15 @@ Collector.prototype.flush = function(callback) {
 // @param [Object] value the data
 // @param [Object] tags the tags (optional)
 Collector.prototype.collect = function(seriesName, value, tags) {
+    if (typeof value === 'number') {
+      value = { value: value }
+    }
     var point = {
       measurement: seriesName,
       tags: tags,
-      fields: { value: value}
+      fields: value
     }
+
     if (this._instant_flush) {
         this._flushPoints([point]);
     } else {
