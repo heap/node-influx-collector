@@ -1,9 +1,8 @@
 var EventEmitter = require('events').EventEmitter;
 var influx = require('influx');
-var influx_udp = require('influx-udp');
 var url = require('url');
 
-// create a collector for all series
+// create a collector
 function Collector(uri) {
     if (!(this instanceof Collector)) {
         return new Collector(uri);
@@ -26,13 +25,11 @@ function Collector(uri) {
         password = parts.shift();
     }
 
-    var client = parsed.protocol == 'udp:' ? influx_udp : influx;
-    var protocol = parsed.protocol == 'udp:' ? 'line' : parsed.protocol;
 
-    self._client = new client({
+    self._client = new influx.InfluxDB({
         host : parsed.hostname,
         port : parsed.port,
-        protocol : protocol,
+        protocol : parsed.protocol.split(':')[0], // remove trailing ':',
         username : username,
         password : password,
         database : parsed.pathname.slice(1), // remove leading '/'
@@ -40,6 +37,7 @@ function Collector(uri) {
     });
 
     self._series = {};
+    self._points = [];
     self._flushesInFlight = 0;
 
     var opt = parsed.query || {};
@@ -86,72 +84,59 @@ Collector.prototype._notifyIfFlushed = function(callback, err) {
     setImmediate(callback, err);
 };
 
-Collector.prototype._flushSeries = function(seriesName, points, callback) {
+Collector.prototype._flushPoints = function(points, callback) {
     if (!points || points.length === 0) {
         return;
     }
     var self = this;
 
     // only send N points at a time to avoid making requests too large
-    var spliceIndex;
-    if (self._client.protocol == 'udp:' || self._client.protocol == 'line') {
-      spliceIndex = self.computePointCountToSend(points.map(function (point) {
+    var spliceIndex = self.computePointCountToSend(points.map(function (point) {
         return JSON.stringify(point).length;
       }), MTU_SIZE);
-    } else {
-      spliceIndex = 50;
-    }
     var batch = points.slice(0, spliceIndex);
     points = points.slice(spliceIndex);
     var opt = { precision: self._time_precision };
 
     self._flushesInFlight++;
-    self._client.writePoints(seriesName, batch, opt, function(err) {
+    self._client.writePoints(batch, opt)
+      .then(function() {
         self._flushesInFlight--;
-        if (err) {
-            // TODO if error put points back to send again?
-            self.emit('error', err);
-            self._notifyIfFlushed(callback, err);
-            return;
-        }
-
         // there are more points to flush out
         if (points.length > 0) {
-            self._flushSeries(seriesName, points);
+            self._flushPoints(points);
         }
         self._notifyIfFlushed(callback);
-    });
+      }, function(err) {
+        self._flushesInFlight--;
+        // TODO if error put points back to send again?
+        self.emit('error', err);
+        self._notifyIfFlushed(callback, err);
+      });
 };
 
 Collector.prototype.flush = function(callback) {
-    var self = this;
-
-    Object.keys(self._series).forEach(function(key) {
-        var series = self._series[key];
-        delete self._series[key];
-        self._flushSeries(key, series, callback);
-    });
-    self._notifyIfFlushed(callback);
-};
-
-Collector.prototype._getSeries = function(name, reset) {
-    var series = this._series[name];
-    if (!series) {
-        series = [];
-        this._series[name] = series;
-    }
-    return series;
+    this._flushPoints(this._points, callback);
+    this._points = [];
 };
 
 // collect a data point (or object)
-// @param [Object] value the data
+// @param [Object] fields the data
 // @param [Object] tags the tags (optional)
-Collector.prototype.collect = function(seriesName, value, tags) {
+Collector.prototype.collect = function(seriesName, fields, tags) {
+    if (typeof fields !== 'object') {
+      fields = { value: fields }
+    }
+    var point = {
+      measurement: seriesName,
+      tags: tags,
+      fields: fields
+    }
+
     if (this._instant_flush) {
-        this._flushSeries(seriesName, [[value, tags]]);
+        this._flushPoints([point]);
     } else {
-        var series = this._getSeries(seriesName);
-        series.push([value, tags]);
+        this._points.push(point)
     }
 };
 
