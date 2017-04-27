@@ -11,7 +11,29 @@ describe('Influx Collector', function() {
       done();
   });
 
-  it('should collect a single data point', function(done) {
+  it('should collect a single data point with a primative value', function(done) {
+      var statsCollector = Collector(COLLECTOR_URL);
+      var writePointsSpy = simple.mock(statsCollector._client, 'writePoints');
+
+      statsCollector.collect('series-name', 35);
+      statsCollector.flush();
+
+      assert.equal(writePointsSpy.callCount, 1);
+      var writeArgs = [
+        [
+          {
+            measurement: 'series-name',
+            tags: undefined,
+            fields: {value: 35}
+          }
+        ],
+        {precision: undefined}
+      ];
+      assert.deepEqual(writePointsSpy.calls[0].args, writeArgs);
+      done();
+  });
+
+  it('should collect a single data point with an object value', function(done) {
       var statsCollector = Collector(COLLECTOR_URL);
       var writePointsSpy = simple.mock(statsCollector._client, 'writePoints');
 
