@@ -130,7 +130,8 @@ Collector.prototype.collect = function(seriesName, fields, tags) {
     var point = {
       measurement: seriesName,
       tags: tags,
-      fields: fields
+      fields: fields,
+      timestamp: fields.time
     }
 
     if (this._instant_flush) {
