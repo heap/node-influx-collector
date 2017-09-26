@@ -127,11 +127,19 @@ Collector.prototype.collect = function(seriesName, fields, tags) {
     if (typeof fields !== 'object') {
       fields = { value: fields }
     }
+
+    // Influx logs an error every time a data point is sent with a 'time'
+    // field. To allow setting the `time` column by sending `time` as a field,
+    // we need delete 'time' from the fields before passing them to Influx.
+    var time = fields.time;
+    fields = Object.assign({}, fields);
+    delete fields.time;
+
     var point = {
       measurement: seriesName,
       tags: tags,
       fields: fields,
-      timestamp: fields.time
+      timestamp: time
     }
 
     if (this._instant_flush) {
