@@ -104,7 +104,7 @@ Collector.prototype._flushPoints = function(points, callback) {
         self._flushesInFlight--;
         // there are more points to flush out
         if (points.length > 0) {
-            self._flushPoints(points);
+            self._flushPoints(points, callback);
         }
         self._notifyIfFlushed(callback);
       }, function(err) {
