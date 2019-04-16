@@ -86,7 +86,7 @@ Collector.prototype._notifyIfFlushed = function(callback, err) {
 
 Collector.prototype._flushPoints = function(points, callback) {
     if (!points || points.length === 0) {
-        return;
+        return setImmediate(callback);
     }
     var self = this;
 
